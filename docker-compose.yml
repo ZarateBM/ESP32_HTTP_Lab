@@ -6,8 +6,9 @@ services:
     container_name: esp32_http_lab
     restart: unless-stopped
     ports:
-      # Publica el puerto en el host: http://IP_DEL_SERVIDOR:3000
-      - "3000:3000"
+      # Publica el puerto en el host: http://IP_DEL_SERVIDOR:8080
+      # (el 3000 del host lo usa el panel de Dokploy)
+      - "8080:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
