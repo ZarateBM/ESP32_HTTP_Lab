@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   esp32-http-lab:
     build:
@@ -8,6 +6,7 @@ services:
     container_name: esp32_http_lab
     restart: unless-stopped
     ports:
+      # Publica el puerto en el host: http://IP_DEL_SERVIDOR:3000
       - "3000:3000"
     environment:
       - NODE_ENV=production

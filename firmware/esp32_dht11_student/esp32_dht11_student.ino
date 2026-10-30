@@ -27,8 +27,8 @@ const char *DESK_NUMBER = "Mesa 1"; // Número de mesa o pupitre
 // --------------------------------------------------------------------------
 // 2. CONFIGURACIÓN DE RED WIFI (Misma red del servidor Dokploy / Aula)
 // --------------------------------------------------------------------------
-const char *WIFI_SSID = "";
-const char *WIFI_PASSWORD = "";
+const char* WIFI_SSID     = "Fam Zarate Aguero-2.4G";
+const char* WIFI_PASSWORD = "yvDU6uev";
 
 // --------------------------------------------------------------------------
 // 3. IP LOCAL DEL SERVIDOR DOKPLOY / DOCKER
