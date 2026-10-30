@@ -40,3 +40,30 @@ export interface ClassroomSummary {
   minHumidity: { studentName: string; studentId: string; value: number } | null;
   lastUpdate: string;
 }
+
+// ==========================================
+// MODELOS PARA LA SALA VIRTUAL CON POTENCIÓMETRO (DIMMER)
+// ==========================================
+export interface StudentDimmerReading {
+  studentId: string;
+  studentName: string;
+  deskNumber: string;
+  brightness: number;       // Nivel de brillo de 0 a 100%
+  rawAdc: number;           // Valor analógico crudo de 0 a 4095
+  lampColor: string;        // Color característico de la lámpara del alumno
+  timestamp: string;
+  lastSeen: string;
+  clientIp: string;
+  isOnline: boolean;
+  packetsCount: number;
+}
+
+export interface DimmerClassroomSummary {
+  avgBrightness: number;    // Promedio de brillo de toda la sala (0-100%)
+  totalStudents: number;
+  onlineStudents: number;
+  highestBrightness: { studentName: string; brightness: number } | null;
+  lowestBrightness: { studentName: string; brightness: number } | null;
+  roomMode: 'cine' | 'calido' | 'trabajo';
+  lastUpdate: string;
+}

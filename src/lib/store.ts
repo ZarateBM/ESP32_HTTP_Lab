@@ -2,6 +2,8 @@ import {
   StudentDHT11Reading,
   StudentSession,
   ClassroomSummary,
+  StudentDimmerReading,
+  DimmerClassroomSummary,
 } from '@/types';
 
 // Función para calcular Sensación Térmica (Heat Index)
@@ -12,14 +14,30 @@ function calculateHeatIndex(tempC: number, hum: number): number {
   return Math.round((isNaN(hi) || hi < T ? T : hi) * 10) / 10;
 }
 
+const LAMP_COLORS = [
+  '#fbbf24', // Ámbar cálido
+  '#38bdf8', // Cian eléctrico
+  '#f43f5e', // Rosa neón
+  '#34d399', // Esmeralda
+  '#c084fc', // Violeta
+  '#fb923c', // Naranja
+  '#a3e635', // Lima
+];
+
 interface ClassroomStore {
+  // Aula DHT11
   students: Record<string, StudentSession>;
+
+  // Sala Virtual Dimmer (Potenciómetro)
+  dimmers: Record<string, StudentDimmerReading>;
+
   serverStartTime: number;
 }
 
 const createInitialState = (): ClassroomStore => {
   return {
     students: {},
+    dimmers: {},
     serverStartTime: Date.now(),
   };
 };
@@ -29,14 +47,13 @@ declare global {
   var __classroomStore: ClassroomStore | undefined;
 }
 
-if (!globalThis.__classroomStore || !globalThis.__classroomStore.students) {
+if (!globalThis.__classroomStore || !globalThis.__classroomStore.students || !globalThis.__classroomStore.dimmers) {
   globalThis.__classroomStore = createInitialState();
 }
 
 const store = globalThis.__classroomStore;
-if (!store.students) {
-  store.students = {};
-}
+if (!store.students) store.students = {};
+if (!store.dimmers) store.dimmers = {};
 
 export const LabStore = {
   // ==========================================
@@ -59,7 +76,6 @@ export const LabStore = {
     const hum = Math.round(Number(data.humidity) * 10) / 10;
     const heatIndex = calculateHeatIndex(temp, hum);
 
-    // Evaluación de estado de confort térmico
     let status: StudentDHT11Reading['status'] = 'optimal';
     if (temp > 28) {
       status = 'warning_heat';
@@ -85,7 +101,6 @@ export const LabStore = {
     };
 
     if (!store.students[studentId]) {
-      // Nuevo estudiante ingresando al aula
       store.students[studentId] = {
         studentId,
         studentName,
@@ -99,7 +114,6 @@ export const LabStore = {
         clientIp: data.clientIp,
       };
     } else {
-      // Actualización de telemetría de estudiante existente
       const session = store.students[studentId];
       session.studentName = studentName;
       if (data.deskNumber) session.deskNumber = deskNumber;
@@ -123,20 +137,12 @@ export const LabStore = {
 
     return list.map((s) => {
       const diffMs = now - new Date(s.lastSeen).getTime();
-      const isOnline = diffMs < 25000; // En línea si envió datos en los últimos 25s
+      const isOnline = diffMs < 25000;
       return {
         ...s,
         isOnline,
       };
     }).sort((a, b) => b.packetsCount - a.packetsCount);
-  },
-
-  getStudent(studentId: string): StudentSession | null {
-    const cleanId = studentId.trim().toLowerCase().replace(/\s+/g, '-');
-    const s = store.students[cleanId];
-    if (!s) return null;
-    const isOnline = Date.now() - new Date(s.lastSeen).getTime() < 25000;
-    return { ...s, isOnline };
   },
 
   getClassroomSummary(): ClassroomSummary {
@@ -196,10 +202,114 @@ export const LabStore = {
     store.students = {};
   },
 
+  // ==========================================
+  // SALA VIRTUAL CON POTENCIÓMETRO (DIMMER)
+  // ==========================================
+  registerDimmer(data: {
+    studentId: string;
+    studentName: string;
+    deskNumber?: string;
+    brightness: number; // 0 a 100
+    rawAdc?: number;    // 0 a 4095
+    clientIp: string;
+  }) {
+    const now = new Date();
+    const studentId = data.studentId.trim().toLowerCase().replace(/\s+/g, '-');
+    const studentName = data.studentName.trim() || `Alumno ${studentId}`;
+    const deskNumber = data.deskNumber?.trim() || 'Mesa 1';
+    const brightness = Math.max(0, Math.min(100, Math.round(Number(data.brightness))));
+    const rawAdc = data.rawAdc !== undefined ? Math.round(Number(data.rawAdc)) : Math.round((brightness / 100) * 4095);
+
+    const existing = store.dimmers[studentId];
+    const lampColor = existing?.lampColor || LAMP_COLORS[Object.keys(store.dimmers).length % LAMP_COLORS.length];
+
+    const dimmerRecord: StudentDimmerReading = {
+      studentId,
+      studentName,
+      deskNumber,
+      brightness,
+      rawAdc,
+      lampColor,
+      timestamp: now.toISOString(),
+      lastSeen: now.toISOString(),
+      clientIp: data.clientIp,
+      isOnline: true,
+      packetsCount: existing ? existing.packetsCount + 1 : 1,
+    };
+
+    store.dimmers[studentId] = dimmerRecord;
+
+    return {
+      dimmer: dimmerRecord,
+      summary: this.getDimmerSummary(),
+    };
+  },
+
+  getAllDimmers(): StudentDimmerReading[] {
+    const now = Date.now();
+    const list = Object.values(store.dimmers);
+
+    return list.map((d) => {
+      const diffMs = now - new Date(d.lastSeen).getTime();
+      return {
+        ...d,
+        isOnline: diffMs < 20000,
+      };
+    }).sort((a, b) => b.packetsCount - a.packetsCount);
+  },
+
+  getDimmerSummary(): DimmerClassroomSummary {
+    const dimmers = this.getAllDimmers();
+    const online = dimmers.filter((d) => d.isOnline);
+
+    if (dimmers.length === 0) {
+      return {
+        avgBrightness: 50,
+        totalStudents: 0,
+        onlineStudents: 0,
+        highestBrightness: null,
+        lowestBrightness: null,
+        roomMode: 'calido',
+        lastUpdate: new Date().toISOString(),
+      };
+    }
+
+    const activeList = online.length > 0 ? online : dimmers;
+    const sumBrightness = activeList.reduce((acc, d) => acc + d.brightness, 0);
+    const avg = Math.round(sumBrightness / activeList.length);
+
+    const sortedByBrightness = [...activeList].sort((a, b) => b.brightness - a.brightness);
+
+    let roomMode: DimmerClassroomSummary['roomMode'] = 'calido';
+    if (avg < 30) roomMode = 'cine';
+    else if (avg > 70) roomMode = 'trabajo';
+
+    return {
+      avgBrightness: avg,
+      totalStudents: dimmers.length,
+      onlineStudents: online.length,
+      highestBrightness: {
+        studentName: sortedByBrightness[0].studentName,
+        brightness: sortedByBrightness[0].brightness,
+      },
+      lowestBrightness: {
+        studentName: sortedByBrightness[sortedByBrightness.length - 1].studentName,
+        brightness: sortedByBrightness[sortedByBrightness.length - 1].brightness,
+      },
+      roomMode,
+      lastUpdate: new Date().toISOString(),
+    };
+  },
+
+  resetDimmers() {
+    store.dimmers = {};
+  },
+
   getStats() {
     return {
       uptimeSeconds: Math.floor((Date.now() - store.serverStartTime) / 1000),
       studentsCount: Object.keys(store.students).length,
+      dimmersCount: Object.keys(store.dimmers).length,
     };
   },
 };
