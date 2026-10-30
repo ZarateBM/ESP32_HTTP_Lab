@@ -36,116 +36,24 @@ interface GlobalStore {
 }
 
 const createInitialState = (): GlobalStore => {
-  const now = new Date();
-
-  // Estudiantes iniciales demostrativos para que el aula esté viva desde el primer segundo
-  const seedStudents: Array<{ id: string; name: string; desk: string; temp: number; hum: number; ip: string }> = [
-    { id: 'alumno-01', name: 'Sofía Castro', desk: 'Mesa 1', temp: 24.5, hum: 52, ip: '192.168.1.110' },
-    { id: 'alumno-02', name: 'Carlos Mora', desk: 'Mesa 2', temp: 29.4, hum: 74, ip: '192.168.1.112' },
-    { id: 'alumno-03', name: 'Valeria Rojas', desk: 'Mesa 3', temp: 21.8, hum: 46, ip: '192.168.1.115' },
-    { id: 'alumno-04', name: 'Andrés Navarro', desk: 'Mesa 4', temp: 25.0, hum: 58, ip: '192.168.1.118' },
-  ];
-
-  const studentsMap: Record<string, StudentSession> = {};
-
-  seedStudents.forEach((seed, index) => {
-    const readingTime = new Date(now.getTime() - index * 5000).toISOString();
-    let status: StudentDHT11Reading['status'] = 'optimal';
-    if (seed.temp > 28) status = 'warning_heat';
-    else if (seed.temp < 19) status = 'warning_cold';
-    else if (seed.hum > 70 || seed.hum < 30) status = 'warning_humidity';
-
-    const reading: StudentDHT11Reading = {
-      id: `seed-dht-${seed.id}`,
-      studentId: seed.id,
-      studentName: seed.name,
-      deskNumber: seed.desk,
-      temperature: seed.temp,
-      humidity: seed.hum,
-      heatIndex: calculateHeatIndex(seed.temp, seed.hum),
-      timestamp: readingTime,
-      clientIp: seed.ip,
-      source: 'esp32',
-      status,
-      ledCommand: status !== 'optimal',
-    };
-
-    studentsMap[seed.id] = {
-      studentId: seed.id,
-      studentName: seed.name,
-      deskNumber: seed.desk,
-      latestReading: reading,
-      history: [reading],
-      firstSeen: readingTime,
-      lastSeen: readingTime,
-      packetsCount: 1,
-      isOnline: true,
-      ledTarget: false,
-      clientIp: seed.ip,
-    };
-  });
-
-  const initialLightTelemetry: SensorTelemetry = {
-    id: 'demo-init-1',
-    deviceId: 'esp32-aula-lab',
-    timestamp: now.toISOString(),
-    light: 480,
-    lightUnit: 'lux',
-    proximity: 25.4,
-    proximityUnit: 'cm',
-    battery: 98,
-    clientIp: '192.168.1.150',
-    status: 'normal',
-    notes: 'Inicialización de demostración'
-  };
-
   return {
-    students: studentsMap,
+    students: {},
     classroomLedBroadcast: null,
-    telemetryHistory: [initialLightTelemetry],
-    latestTelemetry: initialLightTelemetry,
+    telemetryHistory: [],
+    latestTelemetry: null,
     actuators: {
       led: false,
       buzzer: false,
       ledMode: 'auto',
       proximityThreshold: 15,
       lightThreshold: 200,
-      lastUpdated: now.toISOString(),
+      lastUpdated: new Date().toISOString(),
     },
-    httpLogs: [
-      {
-        id: 'log-seed-1',
-        timestamp: now.toISOString(),
-        method: 'POST',
-        path: '/api/dht11',
-        statusCode: 201,
-        clientIp: '192.168.1.110',
-        userAgent: 'ESP32-DHT11-Student/1.0',
-        requestHeaders: {
-          'host': '192.168.1.100:3000',
-          'content-type': 'application/json',
-          'user-agent': 'ESP32-DHT11-Student/1.0',
-        },
-        requestBody: {
-          studentId: 'alumno-01',
-          studentName: 'Sofía Castro',
-          temperature: 24.5,
-          humidity: 52,
-        },
-        responseBody: {
-          status: 'success',
-          ledCommand: false,
-          heatIndex: 25.1,
-        },
-        latencyMs: 11,
-        source: 'esp32',
-        studentName: 'Sofía Castro',
-      }
-    ],
+    httpLogs: [],
     serverStartTime: Date.now(),
     stats: {
-      totalRequests: 1,
-      esp32Packets: 1,
+      totalRequests: 0,
+      esp32Packets: 0,
       simulatorPackets: 0,
     },
   };
@@ -158,6 +66,12 @@ declare global {
 
 if (!globalThis.__esp32Store || !globalThis.__esp32Store.students) {
   globalThis.__esp32Store = createInitialState();
+} else {
+  // Limpiar cualquier dato ficticio de pruebas anteriores
+  delete globalThis.__esp32Store.students['alumno-01'];
+  delete globalThis.__esp32Store.students['alumno-02'];
+  delete globalThis.__esp32Store.students['alumno-03'];
+  delete globalThis.__esp32Store.students['alumno-04'];
 }
 
 const store = globalThis.__esp32Store;
