@@ -16,6 +16,7 @@ import {
   Target,
 } from 'lucide-react';
 import { StudentProximityReading, ProximityClassroomSummary } from '@/types';
+import ForwardSonar from '@/components/ForwardSonar';
 
 export default function RadarProximityPage() {
   const [proximities, setProximities] = useState<StudentProximityReading[]>([]);
@@ -125,7 +126,7 @@ export default function RadarProximityPage() {
 
             <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', maxWidth: '820px', lineHeight: '1.6' }}>
               Cada estudiante transmite por HTTP la distancia de los obstáculos detectados por su sensor ultrasónico.
-              El radar visualiza colectivamente a los alumnos en círculos de proximidad (<span style={{ color: '#ef4444' }}>Crítico &lt;20cm</span>, <span style={{ color: '#f59e0b' }}>Advertencia 20-60cm</span>, <span style={{ color: '#10b981' }}>Seguro &gt;60cm</span>).
+              Cada alumno tiene su propio sonar frontal que muestra a qué distancia está el objeto frente a su sensor (<span style={{ color: '#ef4444' }}>Crítico &lt;20cm</span>, <span style={{ color: '#f59e0b' }}>Advertencia 20-60cm</span>, <span style={{ color: '#10b981' }}>Seguro &gt;60cm</span>).
             </p>
           </div>
 
@@ -211,254 +212,15 @@ export default function RadarProximityPage() {
         </div>
       </div>
 
-      {/* PANTALLA PRINCIPAL: RADAR SONAR CIRCULAR COLECTIVO */}
-      <div
-        style={{
-          background: 'radial-gradient(ellipse at center, rgba(14, 165, 233, 0.08) 0%, rgba(3, 7, 18, 0.95) 75%), #030712',
-          border: '1px solid rgba(56, 189, 248, 0.3)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '2.5rem 1.5rem',
-          marginBottom: '2rem',
-          position: 'relative',
-          overflow: 'hidden',
-          boxShadow: 'inset 0 0 100px rgba(0, 0, 0, 0.9), 0 0 40px rgba(56, 189, 248, 0.1)',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--cyan-primary)', fontWeight: 700 }}>
-              Barrido de Ondas Ultrasónicas (40 kHz)
-            </div>
-            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc' }}>
-              Plano Sonar de Proximidad Colectiva
-            </h3>
-          </div>
-
-          <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.78rem' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#ef4444' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }} /> &lt;20cm (Peligro)
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#f59e0b' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }} /> 20-60cm (Atención)
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#10b981' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} /> &gt;60cm (Despejado)
-            </span>
-          </div>
-        </div>
-
-        {/* Visualizador Circular del Radar */}
-        <div
-          style={{
-            position: 'relative',
-            width: '100%',
-            maxWidth: '540px',
-            height: '420px',
-            margin: '0 auto',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {/* Anillos concéntricos de distancia */}
-          {/* Anillo 200cm (Exterior) */}
-          <div
-            style={{
-              position: 'absolute',
-              width: '380px',
-              height: '380px',
-              borderRadius: '50%',
-              border: '1px dashed rgba(56, 189, 248, 0.25)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'center',
-              pointerEvents: 'none',
-            }}
-          >
-            <span style={{ fontSize: '0.65rem', color: 'rgba(56, 189, 248, 0.6)', marginTop: '-8px', background: '#030712', padding: '0 4px', fontFamily: 'var(--font-mono)' }}>
-              200 cm
-            </span>
-          </div>
-
-          {/* Anillo 120cm */}
-          <div
-            style={{
-              position: 'absolute',
-              width: '270px',
-              height: '270px',
-              borderRadius: '50%',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'center',
-              pointerEvents: 'none',
-            }}
-          >
-            <span style={{ fontSize: '0.65rem', color: 'rgba(56, 189, 248, 0.7)', marginTop: '-8px', background: '#030712', padding: '0 4px', fontFamily: 'var(--font-mono)' }}>
-              120 cm
-            </span>
-          </div>
-
-          {/* Anillo 60cm (Límite advertencia) */}
-          <div
-            style={{
-              position: 'absolute',
-              width: '160px',
-              height: '160px',
-              borderRadius: '50%',
-              border: '1px dashed rgba(245, 158, 11, 0.45)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'center',
-              pointerEvents: 'none',
-            }}
-          >
-            <span style={{ fontSize: '0.62rem', color: '#f59e0b', marginTop: '-8px', background: '#030712', padding: '0 4px', fontFamily: 'var(--font-mono)' }}>
-              60 cm
-            </span>
-          </div>
-
-          {/* Anillo 20cm (Zona de Peligro) */}
-          <div
-            style={{
-              position: 'absolute',
-              width: '76px',
-              height: '76px',
-              borderRadius: '50%',
-              border: '2px solid rgba(239, 68, 68, 0.7)',
-              background: 'rgba(239, 68, 68, 0.1)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'center',
-              pointerEvents: 'none',
-              boxShadow: '0 0 15px rgba(239, 68, 68, 0.3)',
-            }}
-          >
-            <span style={{ fontSize: '0.58rem', color: '#ef4444', marginTop: '-8px', background: '#030712', padding: '0 2px', fontFamily: 'var(--font-mono)' }}>
-              20cm
-            </span>
-          </div>
-
-          {/* Ejes en cruz */}
-          <div style={{ position: 'absolute', width: '380px', height: '1px', background: 'rgba(56, 189, 248, 0.15)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', height: '380px', width: '1px', background: 'rgba(56, 189, 248, 0.15)', pointerEvents: 'none' }} />
-
-          {/* Haz giratorio de barrido radar */}
-          <div
-            style={{
-              position: 'absolute',
-              width: '380px',
-              height: '380px',
-              borderRadius: '50%',
-              background: 'conic-gradient(from 0deg, rgba(56, 189, 248, 0.35) 0deg, rgba(56, 189, 248, 0.05) 45deg, transparent 65deg)',
-              pointerEvents: 'none',
-              animation: 'radarSpin 4s linear infinite',
-            }}
-          />
-
-          {/* Centro del radar (Antena base) */}
-          <div
-            style={{
-              width: '12px',
-              height: '12px',
-              borderRadius: '50%',
-              background: 'var(--cyan-primary)',
-              boxShadow: '0 0 12px var(--cyan-primary)',
-              zIndex: 3,
-            }}
-          />
-
-          {/* Puntos (Blips) de cada estudiante en el radar */}
-          {filteredProximities.length === 0 ? (
-            <div
-              style={{
-                position: 'absolute',
-                bottom: '10px',
-                textAlign: 'center',
-                color: 'var(--text-dim)',
-                fontSize: '0.8rem',
-              }}
-            >
-              Esperando lecturas de sensores HY-SR05...
-            </div>
-          ) : (
-            filteredProximities.map((item) => {
-              // Mapear distancia a radio en píxeles (0 cm = 0px, 200 cm = 190px máximo)
-              const maxDist = 200;
-              const clampedDist = Math.min(maxDist, Math.max(5, item.distanceCm));
-              const radiusPx = (clampedDist / maxDist) * 185;
-
-              // Convertir ángulo a radianes
-              const rad = (item.radarAngle * Math.PI) / 180;
-              const x = Math.cos(rad) * radiusPx;
-              const y = Math.sin(rad) * radiusPx;
-
-              const isDanger = item.alertZone === 'danger';
-              const isWarning = item.alertZone === 'warning';
-              const blipColor = isDanger ? '#ef4444' : isWarning ? '#f59e0b' : '#10b981';
-
-              return (
-                <div
-                  key={item.studentId}
-                  style={{
-                    position: 'absolute',
-                    transform: `translate(${x}px, ${y}px)`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    zIndex: 10,
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                  }}
-                  title={`${item.studentName}: ${item.distanceCm} cm (${item.deskNumber})`}
-                >
-                  {/* Punto pulsante */}
-                  <div
-                    style={{
-                      width: isDanger ? '16px' : '12px',
-                      height: isDanger ? '16px' : '12px',
-                      borderRadius: '50%',
-                      background: blipColor,
-                      boxShadow: `0 0 16px ${blipColor}, 0 0 30px ${blipColor}aa`,
-                      border: '2px solid #ffffff',
-                      animation: isDanger ? 'pulseDanger 0.8s infinite' : 'none',
-                    }}
-                  />
-
-                  {/* Etiqueta flotante con nombre y distancia */}
-                  <div
-                    style={{
-                      marginTop: '4px',
-                      background: 'rgba(3, 7, 18, 0.9)',
-                      border: `1px solid ${blipColor}`,
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      fontSize: '0.68rem',
-                      fontWeight: 700,
-                      color: '#ffffff',
-                      whiteSpace: 'nowrap',
-                      pointerEvents: 'none',
-                      fontFamily: 'var(--font-mono)',
-                    }}
-                  >
-                    {item.studentName.split(' ')[0]}: {item.distanceCm}cm
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* Grid de Sensores de Alumnos */}
+      {/* PANTALLA PRINCIPAL: UN SONAR FRONTAL POR ESTUDIANTE */}
       <div style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#f8fafc' }}>
-              Sensores de Estudiantes en el Aula
+              Sonar Frontal por Estudiante
             </h2>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-dim)' }}>
-              Mostrando telemetría y tiempos de pulso ultrasónico recibidos vía HTTP POST
+              Cada sensor apunta hacia el frente y dibuja el objeto a la distancia medida (alcance 200 cm)
             </p>
           </div>
 
@@ -500,106 +262,62 @@ export default function RadarProximityPage() {
             </p>
           </div>
         ) : (
-          <div className="grid-cards">
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '0.75rem',
+            }}
+          >
             {filteredProximities.map((item) => {
               const isDanger = item.alertZone === 'danger';
               const isWarning = item.alertZone === 'warning';
               const zoneColor = isDanger ? '#ef4444' : isWarning ? '#f59e0b' : '#10b981';
-              const zoneText = isDanger ? '¡Peligro! Cercano' : isWarning ? 'Precaución' : 'Despejado';
-
-              // Barra de proximidad (inversa: mientras más cerca, más se llena en rojo)
-              const proximityPercent = Math.min(100, Math.max(5, Math.round((item.distanceCm / 150) * 100)));
 
               return (
                 <div
                   key={item.studentId}
-                  className="card-glass"
+                  title={`${item.studentName} · ${item.deskNumber}\nPulso Echo: ${item.durationUs} µs\nPaquetes: #${item.packetsCount}\nIP: ${item.clientIp}`}
                   style={{
-                    borderTop: `3px solid ${zoneColor}`,
-                    boxShadow: isDanger ? '0 0 20px rgba(239, 68, 68, 0.2)' : 'none',
+                    background: 'radial-gradient(ellipse at 50% 100%, rgba(14,165,233,0.12) 0%, rgba(3,7,18,0.95) 70%)',
+                    border: '1px solid rgba(56,189,248,0.18)',
+                    borderTop: `2px solid ${zoneColor}`,
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '0.5rem 0.55rem 0.45rem',
+                    boxShadow: isDanger ? '0 0 14px rgba(239, 68, 68, 0.25)' : 'none',
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                   }}
+                  className="sonar-tile"
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '1.05rem', color: '#f8fafc' }}>
-                        {item.studentName}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-                        {item.studentId} · {item.deskNumber}
-                      </div>
-                    </div>
-
+                  {/* Nombre + estado */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.2rem', minWidth: 0 }}>
+                    <span className={item.isOnline ? 'pulse-online' : 'pulse-offline'} />
                     <span
-                      className="badge-pill"
                       style={{
-                        background: `${zoneColor}22`,
-                        color: zoneColor,
-                        border: `1px solid ${zoneColor}66`,
-                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                        color: '#f8fafc',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
                       }}
                     >
-                      {zoneText}
+                      {item.studentName}
+                    </span>
+                    <span style={{ marginLeft: 'auto', fontSize: '0.65rem', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
+                      {item.deskNumber}
                     </span>
                   </div>
 
-                  {/* Valor principal de Distancia */}
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', margin: '1rem 0 0.5rem' }}>
-                    <span style={{ fontSize: '2.4rem', fontWeight: 800, color: zoneColor, fontFamily: 'var(--font-mono)' }}>
+                  {/* Sonar frontal individual */}
+                  <ForwardSonar distanceCm={item.distanceCm} alertZone={item.alertZone} isOnline={item.isOnline} />
+
+                  {/* Distancia */}
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '0.25rem' }}>
+                    <span style={{ fontSize: '1.35rem', fontWeight: 800, color: zoneColor, fontFamily: 'var(--font-mono)' }}>
                       {item.distanceCm}
                     </span>
-                    <span style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>cm</span>
-                  </div>
-
-                  {/* Barra visual de distancia */}
-                  <div style={{ marginBottom: '1rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-dim)', marginBottom: '0.25rem' }}>
-                      <span>0 cm</span>
-                      <span>60 cm</span>
-                      <span>150+ cm</span>
-                    </div>
-                    <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          width: `${proximityPercent}%`,
-                          height: '100%',
-                          background: `linear-gradient(90deg, #ef4444 0%, #f59e0b 40%, #10b981 100%)`,
-                          borderRadius: '4px',
-                          transition: 'width 0.3s ease',
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Detalles técnicos de la medición */}
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 1fr',
-                      gap: '0.5rem',
-                      fontSize: '0.74rem',
-                      background: 'rgba(0,0,0,0.3)',
-                      padding: '0.6rem 0.75rem',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--border-light)',
-                      color: 'var(--text-muted)',
-                      fontFamily: 'var(--font-mono)',
-                    }}
-                  >
-                    <div>
-                      <span style={{ color: 'var(--text-dim)' }}>Pulso Echo:</span> {item.durationUs} µs
-                    </div>
-                    <div>
-                      <span style={{ color: 'var(--text-dim)' }}>Paquetes:</span> #{item.packetsCount}
-                    </div>
-                    <div>
-                      <span style={{ color: 'var(--text-dim)' }}>IP:</span> {item.clientIp}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <span className={item.isOnline ? 'pulse-online' : 'pulse-offline'} />
-                      <span style={{ color: item.isOnline ? 'var(--emerald-accent)' : 'var(--text-dim)' }}>
-                        {item.isOnline ? 'En línea' : 'Inactivo'}
-                      </span>
-                    </div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>cm</span>
                   </div>
                 </div>
               );
@@ -731,13 +449,51 @@ export default function RadarProximityPage() {
       </div>
 
       <style jsx global>{`
-        @keyframes radarSpin {
-          from {
-            transform: rotate(0deg);
+        @keyframes sonarSweep {
+          0% {
+            transform: rotate(-36deg);
           }
-          to {
-            transform: rotate(360deg);
+          50% {
+            transform: rotate(36deg);
           }
+          100% {
+            transform: rotate(-36deg);
+          }
+        }
+        @keyframes sonarWave {
+          0% {
+            transform: scale(0.05);
+            opacity: 0.9;
+          }
+          85% {
+            opacity: 0.6;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 0;
+          }
+        }
+        .fwd-sonar__sweep {
+          animation: sonarSweep 3s ease-in-out infinite;
+        }
+        .fwd-sonar__wave {
+          animation: sonarWave 1.8s ease-out infinite;
+        }
+        .fwd-sonar__obj--danger {
+          animation: sonarBlink 0.8s ease-in-out infinite;
+        }
+        @keyframes sonarBlink {
+          50% {
+            opacity: 0.35;
+          }
+        }
+        .fwd-sonar--offline {
+          filter: grayscale(1);
+          opacity: 0.45;
+        }
+        .sonar-tile:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 18px rgba(56, 189, 248, 0.18) !important;
         }
         @keyframes pulseDanger {
           0% {
