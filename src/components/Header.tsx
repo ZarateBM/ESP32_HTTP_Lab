@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Cpu, Activity, Send, Sliders, Radio, BookOpen, Server } from 'lucide-react';
+import { Cpu, Users, Send, Activity, Sliders, Radio, BookOpen } from 'lucide-react';
 
 export default function Header() {
   const pathname = usePathname();
@@ -43,12 +43,12 @@ export default function Header() {
   };
 
   const navItems = [
-    { href: '/', label: 'Arquitectura', icon: Server },
-    { href: '/dashboard', label: 'Monitor Sensores', icon: Activity },
-    { href: '/simulator', label: 'Simulador POST', icon: Send },
-    { href: '/control', label: 'Actuadores & LED', icon: Sliders },
+    { href: '/', label: 'Aula DHT11 (En Vivo)', icon: Users },
+    { href: '/dht11-simulador', label: 'Simulador Alumno', icon: Send },
+    { href: '/dashboard', label: 'Luz y Proximidad', icon: Activity },
+    { href: '/control', label: 'Control Actuadores', icon: Sliders },
     { href: '/inspector', label: 'Inspector HTTP', icon: Radio },
-    { href: '/guide', label: 'Guía y Código ESP32', icon: BookOpen },
+    { href: '/guide', label: 'Código ESP32', icon: BookOpen },
   ];
 
   return (
@@ -61,10 +61,10 @@ export default function Header() {
               <Cpu size={22} />
             </div>
             <div>
-              <div className="brand-title">ESP32 HTTP Lab</div>
+              <div className="brand-title">ESP32 HTTP Classroom</div>
               <div className="brand-subtitle">
                 <span>Dokploy + Next.js</span>
-                <span className="badge-pill badge-cyan">Red Local IoT</span>
+                <span className="badge-pill badge-cyan">Multi-Estudiantes</span>
               </div>
             </div>
           </Link>

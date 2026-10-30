@@ -222,6 +222,11 @@ export default function InspectorPage() {
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', fontWeight: 600, color: '#f8fafc' }}>
                           {log.path}
                         </span>
+                        {log.studentName && (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--cyan-primary)', fontWeight: 600 }}>
+                            · {log.studentName}
+                          </span>
+                        )}
                       </div>
                       <span className={`badge-pill ${log.statusCode >= 200 && log.statusCode < 300 ? 'badge-emerald' : 'badge-rose'}`} style={{ fontSize: '0.68rem' }}>
                         {log.statusCode}

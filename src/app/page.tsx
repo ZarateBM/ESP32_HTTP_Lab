@@ -1,98 +1,131 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import NetworkDiagram from '@/components/NetworkDiagram';
 import {
-  Activity,
-  Send,
-  Sliders,
-  Radio,
-  BookOpen,
-  ArrowUpRight,
-  Sun,
-  Ruler,
-  Terminal,
+  Users,
+  Thermometer,
+  Droplets,
   Zap,
+  RefreshCw,
+  Search,
+  Bell,
+  Trash2,
+  Send,
+  Wifi,
+  Sparkles,
+  ArrowUpRight,
+  Flame,
+  Snowflake,
+  ShieldAlert,
 } from 'lucide-react';
-import { SensorTelemetry } from '@/types';
+import { StudentSession, ClassroomSummary } from '@/types';
 
-export default function HomePage() {
-  const [latestData, setLatestData] = useState<SensorTelemetry | null>(null);
+export default function ClassroomDashboardPage() {
+  const [students, setStudents] = useState<StudentSession[]>([]);
+  const [summary, setSummary] = useState<ClassroomSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [broadcastActive, setBroadcastActive] = useState<boolean | null>(null);
+  const [commandFeedback, setCommandFeedback] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchLatest = async () => {
-      try {
-        const res = await fetch('/api/sensors?limit=1&silent=true');
-        if (res.ok) {
-          const json = await res.json();
-          setLatestData(json.latest || null);
-        }
-      } catch (err) {
-        console.error('Error fetching latest telemetry:', err);
-      } finally {
-        setLoading(false);
+  const fetchClassroom = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const res = await fetch('/api/dht11');
+      if (res.ok) {
+        const data = await res.json();
+        setStudents(data.students || []);
+        setSummary(data.summary || null);
       }
-    };
-
-    fetchLatest();
-    const interval = setInterval(fetchLatest, 3000);
-    return () => clearInterval(interval);
+    } catch (err) {
+      console.error('Error fetching classroom DHT11 data:', err);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
   }, []);
 
-  const featureCards = [
-    {
-      title: '1. Monitor de Sensores en Vivo',
-      desc: 'Visualiza en tiempo real las lecturas de Luz (LDR) y Proximidad (HC-SR04) transmitidas por el ESP32 o el simulador.',
-      href: '/dashboard',
-      icon: Activity,
-      color: 'var(--cyan-primary)',
-      badge: 'Visualización',
-    },
-    {
-      title: '2. Simulador de Señales POST',
-      desc: '¿No tienes el ESP32 a la mano? Envía lecturas simuladas mediante HTTP POST real y visualiza el paquete exacto generado.',
-      href: '/simulator',
-      icon: Send,
-      color: 'var(--blue-primary)',
-      badge: 'Práctica Interactiva',
-    },
-    {
-      title: '3. Control Remoto de Actuadores',
-      desc: 'Enciende o apaga el LED físico del ESP32 (GPIO 2) y ajusta los umbrales automáticos de proximidad y luminosidad.',
-      href: '/control',
-      icon: Sliders,
-      color: 'var(--amber-accent)',
-      badge: 'IoT Bidireccional',
-    },
-    {
-      title: '4. Inspector de Tráfico HTTP',
-      desc: 'Analiza cada paquete HTTP: métodos (GET/POST), cabeceras (Headers), cuerpo JSON, IP del cliente y códigos de estado.',
-      href: '/inspector',
-      icon: Radio,
-      color: 'var(--purple-accent)',
-      badge: 'Depuración y Redes',
-    },
-    {
-      title: '5. Guía Didáctica y Código ESP32',
-      desc: 'Código Arduino C++ (.ino) completo listo para copiar, diagrama de pines en protoboard y tutorial de Dokploy.',
-      href: '/guide',
-      icon: BookOpen,
-      color: 'var(--emerald-accent)',
-      badge: 'Material Docente',
-    },
-  ];
+  useEffect(() => {
+    fetchClassroom();
+    if (!autoRefresh) return;
+    const interval = setInterval(fetchClassroom, 2000);
+    return () => clearInterval(interval);
+  }, [autoRefresh, fetchClassroom]);
+
+  // Comando individual a un estudiante
+  const handleToggleStudentLed = async (studentId: string, currentLedState: boolean) => {
+    try {
+      const res = await fetch('/api/dht11/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, led: !currentLedState }),
+      });
+      if (res.ok) {
+        setCommandFeedback(`Comando enviado al ESP32 de ${studentId}: LED ${!currentLedState ? 'ENCENDIDO' : 'APAGADO'}`);
+        setTimeout(() => setCommandFeedback(null), 3500);
+        fetchClassroom();
+      }
+    } catch (err) {
+      console.error('Error toggling student LED:', err);
+    }
+  };
+
+  // Broadcast a toda el aula
+  const handleBroadcastLed = async (state: boolean | null) => {
+    try {
+      const res = await fetch('/api/dht11/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ broadcast: true, led: state }),
+      });
+      if (res.ok) {
+        setBroadcastActive(state);
+        setCommandFeedback(state !== null
+          ? `¡Broadcast enviado! Todos los ESP32 del aula pondrán su LED en ${state ? 'ENCENDIDO (HIGH)' : 'APAGADO (LOW)'}`
+          : 'Broadcast finalizado: los ESP32 vuelven al control automático'
+        );
+        setTimeout(() => setCommandFeedback(null), 4000);
+        fetchClassroom();
+      }
+    } catch (err) {
+      console.error('Error broadcasting LED:', err);
+    }
+  };
+
+  // Reiniciar aula
+  const handleResetClassroom = async () => {
+    if (!confirm('¿Deseas reiniciar la lista de alumnos para una nueva sesión de clase?')) return;
+    try {
+      await fetch('/api/dht11', { method: 'DELETE' });
+      fetchClassroom();
+    } catch (err) {
+      console.error('Error resetting classroom:', err);
+    }
+  };
+
+  const filteredStudents = students.filter((s) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      s.studentName.toLowerCase().includes(q) ||
+      s.studentId.toLowerCase().includes(q) ||
+      s.deskNumber.toLowerCase().includes(q) ||
+      s.clientIp.includes(q)
+    );
+  });
 
   return (
     <div>
-      {/* Hero Educativo */}
+      {/* Banner Principal del Aula */}
       <div
         style={{
-          background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.8) 0%, rgba(6, 8, 14, 0.95) 100%)',
+          background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.85) 0%, rgba(6, 9, 17, 0.95) 100%)',
           border: '1px solid var(--border-light)',
           borderRadius: 'var(--radius-lg)',
-          padding: '2.5rem 2rem',
+          padding: '2rem 1.75rem',
           marginBottom: '2rem',
           position: 'relative',
           overflow: 'hidden',
@@ -101,194 +134,388 @@ export default function HomePage() {
         <div
           style={{
             position: 'absolute',
-            top: '-50px',
-            right: '-50px',
-            width: '250px',
-            height: '250px',
+            top: '-60px',
+            right: '-60px',
+            width: '280px',
+            height: '280px',
             borderRadius: '50%',
             background: 'radial-gradient(circle, rgba(0, 242, 254, 0.15) 0%, transparent 70%)',
             pointerEvents: 'none',
           }}
         />
 
-        <div style={{ maxWidth: '850px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-            <span className="badge-pill badge-cyan">Laboratorio Universitario & Escolar</span>
-            <span className="badge-pill badge-emerald">Dokploy + Next.js</span>
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1.5rem' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+              <span className="badge-pill badge-cyan">Red Local de Aula (WiFi)</span>
+              <span className="badge-pill badge-emerald">Dokploy + Next.js</span>
+            </div>
 
-          <h1
-            style={{
-              fontSize: '2.4rem',
-              fontWeight: 800,
-              lineHeight: 1.15,
-              marginBottom: '1rem',
-              letterSpacing: '-0.03em',
-            }}
-          >
-            Aprende cómo funciona la <span style={{ color: 'var(--cyan-primary)' }}>Web con HTTP</span> usando un{' '}
-            <span style={{ color: 'var(--blue-primary)' }}>ESP32</span>
-          </h1>
-
-          <p
-            style={{
-              fontSize: '1.05rem',
-              color: 'var(--text-muted)',
-              lineHeight: 1.6,
-              marginBottom: '1.75rem',
-            }}
-          >
-            Conecta un microcontrolador ESP32 a la misma red WiFi local donde corre tu servidor con Dokploy.
-            Descubre en vivo cómo viajan las solicitudes HTTP, los métodos <code>POST</code> y <code>GET</code>,
-            las cabeceras JSON y cómo el hardware interactúa con una aplicación web moderna.
-          </p>
-
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <Link href="/dashboard" className="btn-primary">
-              <Activity size={18} />
-              <span>Ver Telemetría en Vivo</span>
-            </Link>
-            <Link href="/simulator" className="btn-secondary">
-              <Send size={18} />
-              <span>Probar Simulador de Señales</span>
-            </Link>
-            <Link href="/guide" className="btn-secondary">
-              <Terminal size={18} />
-              <span>Ver Código Arduino C++</span>
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Tarjetas de Métricas Rápidas */}
-      <div className="grid-4" style={{ marginBottom: '2rem' }}>
-        <div className="card-glass">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Luz Actual</span>
-            <Sun size={18} color="var(--amber-accent)" />
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#f8fafc' }}>
-            {loading ? '...' : `${latestData?.light ?? 0} ${latestData?.lightUnit ?? 'lux'}`}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.3rem' }}>
-            Sensor LDR (Divisor de tensión)
-          </div>
-        </div>
-
-        <div className="card-glass">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Proximidad Actual</span>
-            <Ruler size={18} color="var(--cyan-primary)" />
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#f8fafc' }}>
-            {loading ? '...' : `${latestData?.proximity ?? 0} ${latestData?.proximityUnit ?? 'cm'}`}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.3rem' }}>
-            Sensor Ultrasónico HC-SR04
-          </div>
-        </div>
-
-        <div className="card-glass">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Dispositivo Activo</span>
-            <Zap size={18} color="var(--emerald-accent)" />
-          </div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc', wordBreak: 'break-all' }}>
-            {loading ? '...' : (latestData?.deviceId || 'Esperando')}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.3rem' }}>
-            IP: {latestData?.clientIp || '192.168.x.x'}
-          </div>
-        </div>
-
-        <div className="card-glass">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Estado Servidor</span>
-            <span className="badge-pill badge-emerald">Dokploy OK</span>
-          </div>
-          <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--cyan-primary)' }}>
-            Puerto 3000
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.3rem' }}>
-            Escuchando en 0.0.0.0
-          </div>
-        </div>
-      </div>
-
-      {/* Diagrama de Red Interactivo */}
-      <NetworkDiagram />
-
-      {/* Módulos de Aprendizaje */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-          Módulos del Laboratorio Práctico
-        </h2>
-        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-          Selecciona una sección para interactuar con la API, inspeccionar paquetes o flashear el microcontrolador:
-        </p>
-      </div>
-
-      <div className="grid-3">
-        {featureCards.map((card, idx) => {
-          const Icon = card.icon;
-          return (
-            <Link
-              key={idx}
-              href={card.href}
-              className="card-glass"
+            <h1
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                cursor: 'pointer',
+                fontSize: '2.2rem',
+                fontWeight: 800,
+                lineHeight: 1.2,
+                letterSpacing: '-0.02em',
+                marginBottom: '0.6rem',
               }}
             >
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                  <div
-                    style={{
-                      width: '42px',
-                      height: '42px',
-                      borderRadius: '10px',
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid var(--border-light)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: card.color,
-                    }}
-                  >
-                    <Icon size={22} />
+              Tablero del Aula: <span style={{ color: 'var(--cyan-primary)' }}>Estudiantes con ESP32 & DHT11</span>
+            </h1>
+
+            <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', maxWidth: '780px', lineHeight: '1.6' }}>
+              Cada estudiante conecta su microcontrolador ESP32 a la misma red WiFi y transmite mediante{' '}
+              <code style={{ color: 'var(--cyan-primary)' }}>HTTP POST /api/dht11</code>.
+              Cada estación aparece proyectada en tiempo real con su <strong>Temperatura</strong>, <strong>Humedad</strong> y estado de conexión.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <Link href="/dht11-simulador" className="btn-primary">
+              <Send size={16} />
+              <span>Simulador del Alumno</span>
+            </Link>
+            <Link href="/guide" className="btn-secondary">
+              <Zap size={16} />
+              <span>Código Arduino (.ino)</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Notificación de feedback de comando */}
+      {commandFeedback && (
+        <div
+          style={{
+            background: 'rgba(16, 185, 129, 0.15)',
+            border: '1px solid rgba(16, 185, 129, 0.35)',
+            borderRadius: 'var(--radius-md)',
+            padding: '0.85rem 1.25rem',
+            marginBottom: '1.5rem',
+            color: '#a7f3d0',
+            fontSize: '0.88rem',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+          }}
+        >
+          <Sparkles size={18} color="var(--emerald-accent)" />
+          <span>{commandFeedback}</span>
+        </div>
+      )}
+
+      {/* Tarjetas de Métricas Globales del Aula */}
+      <div className="grid-metrics">
+        <div className="card-glass">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Alumnos en Línea</span>
+            <Users size={18} color="var(--cyan-primary)" />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+            <span style={{ fontSize: '2.2rem', fontWeight: 800, color: '#f8fafc', fontFamily: 'var(--font-mono)' }}>
+              {summary?.onlineStudents ?? 0}
+            </span>
+            <span style={{ fontSize: '0.9rem', color: 'var(--text-dim)' }}>
+              / {summary?.totalStudents ?? 0} registrados
+            </span>
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--emerald-accent)', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            <span className="pulse-online" />
+            <span>Actualización en tiempo real</span>
+          </div>
+        </div>
+
+        <div className="card-glass">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Temperatura Promedio</span>
+            <Thermometer size={18} color="var(--amber-accent)" />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
+            <span style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--amber-accent)', fontFamily: 'var(--font-mono)' }}>
+              {summary?.avgTemperature ?? '--'}
+            </span>
+            <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>°C</span>
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.3rem' }}>
+            Media del sensor DHT11 en el aula
+          </div>
+        </div>
+
+        <div className="card-glass">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Humedad Promedio</span>
+            <Droplets size={18} color="var(--blue-primary)" />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
+            <span style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--blue-primary)', fontFamily: 'var(--font-mono)' }}>
+              {summary?.avgHumidity ?? '--'}
+            </span>
+            <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>%</span>
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.3rem' }}>
+            Humedad relativa promedio
+          </div>
+        </div>
+
+        <div className="card-glass">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Extremos Térmicos</span>
+            <Flame size={18} color="var(--rose-accent)" />
+          </div>
+          <div style={{ fontSize: '0.82rem', lineHeight: '1.6' }}>
+            <div>
+              <span style={{ color: 'var(--rose-accent)', fontWeight: 700 }}>Más caliente: </span>
+              {summary?.maxTemp ? `${summary.maxTemp.studentName.split(' ')[0]} (${summary.maxTemp.value}°C)` : '--'}
+            </div>
+            <div>
+              <span style={{ color: 'var(--cyan-primary)', fontWeight: 700 }}>Más fresco: </span>
+              {summary?.minTemp ? `${summary.minTemp.studentName.split(' ')[0]} (${summary.minTemp.value}°C)` : '--'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Barra de Control del Docente y Filtros */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          background: 'rgba(15, 23, 42, 0.65)',
+          padding: '0.9rem 1.25rem',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border-light)',
+          marginBottom: '1.75rem',
+        }}
+      >
+        {/* Buscador de alumnos */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(0, 0, 0, 0.4)', padding: '0.45rem 0.85rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)', flex: '1 1 250px', maxWidth: '380px' }}>
+          <Search size={16} color="var(--text-dim)" />
+          <input
+            type="text"
+            placeholder="Buscar por nombre, ID o mesa..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              color: '#ffffff',
+              fontSize: '0.85rem',
+              width: '100%',
+            }}
+          />
+        </div>
+
+        {/* Acciones de Aula para el Profesor */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Control Aula:</span>
+          
+          <button
+            onClick={() => handleBroadcastLed(true)}
+            className="btn-primary"
+            style={{ fontSize: '0.78rem', padding: '0.45rem 0.85rem' }}
+          >
+            <Bell size={14} />
+            <span>Encender Todos los LED</span>
+          </button>
+
+          <button
+            onClick={() => handleBroadcastLed(false)}
+            className="btn-secondary"
+            style={{ fontSize: '0.78rem', padding: '0.45rem 0.85rem' }}
+          >
+            <span>Apagar Todos</span>
+          </button>
+
+          {broadcastActive !== null && (
+            <button
+              onClick={() => handleBroadcastLed(null)}
+              className="btn-secondary"
+              style={{ fontSize: '0.78rem', padding: '0.45rem 0.75rem', color: 'var(--cyan-primary)' }}
+            >
+              Liberar Modo Auto
+            </button>
+          )}
+
+          <button
+            onClick={fetchClassroom}
+            className="btn-secondary"
+            style={{ fontSize: '0.78rem', padding: '0.45rem 0.75rem' }}
+          >
+            <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
+          </button>
+
+          <button
+            onClick={handleResetClassroom}
+            className="btn-danger"
+            style={{ fontSize: '0.78rem', padding: '0.45rem 0.75rem' }}
+            title="Reiniciar lista para otra clase"
+          >
+            <Trash2 size={13} />
+            <span>Limpiar Aula</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Grid de Todos los Estudiantes Conectados */}
+      <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span>Estaciones de los Alumnos ({filteredStudents.length})</span>
+        </h2>
+        <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+          Actualización cada 2 seg · Cada tarjeta corresponde a un ESP32
+        </span>
+      </div>
+
+      {filteredStudents.length === 0 ? (
+        <div
+          className="card-glass"
+          style={{
+            padding: '4rem 2rem',
+            textAlign: 'center',
+            color: 'var(--text-dim)',
+          }}
+        >
+          <Users size={48} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
+          <h3 style={{ fontSize: '1.1rem', color: '#f8fafc', marginBottom: '0.5rem' }}>
+            No hay estudiantes que coincidan con la búsqueda
+          </h3>
+          <p style={{ fontSize: '0.85rem', maxWidth: '420px', margin: '0 auto 1.5rem', lineHeight: '1.6' }}>
+            Diles a los alumnos que compilen el código Arduino en su ESP32 o ingresen al simulador para registrar su estación.
+          </p>
+          <Link href="/dht11-simulador" className="btn-primary">
+            <Send size={16} />
+            <span>Abrir Simulador del Alumno</span>
+          </Link>
+        </div>
+      ) : (
+        <div className="grid-classroom">
+          {filteredStudents.map((student) => {
+            const reading = student.latestReading;
+            const isHot = reading.temperature > 28;
+            const isCold = reading.temperature < 19;
+            const isHumWarn = reading.humidity > 70 || reading.humidity < 30;
+
+            const tempColor = isHot
+              ? 'var(--rose-accent)'
+              : isCold
+              ? 'var(--cyan-primary)'
+              : 'var(--emerald-accent)';
+
+            return (
+              <div
+                key={student.studentId}
+                className={`student-card ${student.isOnline ? 'online' : 'offline'}`}
+              >
+                {/* Cabecera de la Tarjeta del Estudiante */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.85rem' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span className={student.isOnline ? 'pulse-online' : 'pulse-offline'} />
+                        <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.01em' }}>
+                          {student.studentName}
+                        </h3>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.2rem', fontFamily: 'var(--font-mono)' }}>
+                        {student.deskNumber} · ID: {student.studentId}
+                      </div>
+                    </div>
+
+                    <span className={`badge-pill ${student.isOnline ? 'badge-emerald' : 'badge-dim'}`}>
+                      {student.isOnline ? 'EN LÍNEA' : 'INACTIVO'}
+                    </span>
                   </div>
-                  <span className="badge-pill badge-cyan">{card.badge}</span>
+
+                  {/* Bloques de Mediciones DHT11 */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+                    {/* Temperatura */}
+                    <div className="temp-stat-box">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Temperatura</span>
+                        {isHot ? <Flame size={14} color="var(--rose-accent)" /> : isCold ? <Snowflake size={14} color="var(--cyan-primary)" /> : <Thermometer size={14} color="var(--emerald-accent)" />}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.2rem' }}>
+                        <span style={{ fontSize: '2rem', fontWeight: 800, color: tempColor, fontFamily: 'var(--font-mono)' }}>
+                          {reading.temperature.toFixed(1)}
+                        </span>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>°C</span>
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                        Sensación: {reading.heatIndex}°C
+                      </div>
+                    </div>
+
+                    {/* Humedad */}
+                    <div className="temp-stat-box">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Humedad</span>
+                        <Droplets size={14} color="var(--blue-primary)" />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.2rem' }}>
+                        <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--blue-primary)', fontFamily: 'var(--font-mono)' }}>
+                          {reading.humidity.toFixed(0)}
+                        </span>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>%</span>
+                      </div>
+                      {/* Barra de progreso de humedad */}
+                      <div style={{ width: '100%', height: '5px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '3px', overflow: 'hidden', marginTop: '0.35rem' }}>
+                        <div
+                          style={{
+                            width: `${Math.min(100, reading.humidity)}%`,
+                            height: '100%',
+                            background: 'linear-gradient(90deg, #38bdf8, #0284c7)',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Estado de Confort & Alertas */}
+                  <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
+                    <span className={`badge-pill ${reading.status === 'optimal' ? 'badge-emerald' : reading.status === 'warning_heat' ? 'badge-rose' : 'badge-amber'}`} style={{ fontSize: '0.68rem' }}>
+                      {reading.status === 'optimal'
+                        ? '🌿 Confort Óptimo'
+                        : reading.status === 'warning_heat'
+                        ? '🔥 Alerta Calor (>28°C)'
+                        : reading.status === 'warning_cold'
+                        ? '❄️ Ambiente Frío (<19°C)'
+                        : '💧 Humedad Fuera de Rango'}
+                    </span>
+
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+                      {reading.source === 'esp32' ? 'ESP32 Real ⚡' : 'Simulador 💻'}
+                    </span>
+                  </div>
                 </div>
 
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '0.5rem', color: '#f8fafc' }}>
-                  {card.title}
-                </h3>
-                <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                  {card.desc}
-                </p>
-              </div>
+                {/* Pie de la Tarjeta: Control y Hardware */}
+                <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: '0.6rem' }}>
+                    <span>IP: {student.clientIp}</span>
+                    <span>{student.packetsCount} paquetes recibidos</span>
+                  </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  color: card.color,
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  marginTop: '1.5rem',
-                }}
-              >
-                <span>Acceder al módulo</span>
-                <ArrowUpRight size={16} />
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => handleToggleStudentLed(student.studentId, reading.ledCommand)}
+                      className={reading.ledCommand ? 'btn-danger' : 'btn-secondary'}
+                      style={{ flex: 1, padding: '0.45rem', fontSize: '0.75rem' }}
+                    >
+                      <Bell size={12} />
+                      <span>{reading.ledCommand ? 'Apagar LED' : 'Probar LED (GPIO 2)'}</span>
+                    </button>
+                  </div>
+                </div>
               </div>
-            </Link>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
