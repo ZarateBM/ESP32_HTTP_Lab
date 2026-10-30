@@ -9,15 +9,10 @@ import {
   Zap,
   RefreshCw,
   Search,
-  Bell,
   Trash2,
   Send,
-  Wifi,
-  Sparkles,
-  ArrowUpRight,
   Flame,
   Snowflake,
-  ShieldAlert,
 } from 'lucide-react';
 import { StudentSession, ClassroomSummary } from '@/types';
 
@@ -28,8 +23,6 @@ export default function ClassroomDashboardPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [broadcastActive, setBroadcastActive] = useState<boolean | null>(null);
-  const [commandFeedback, setCommandFeedback] = useState<string | null>(null);
 
   const fetchClassroom = useCallback(async () => {
     setIsRefreshing(true);
@@ -54,46 +47,6 @@ export default function ClassroomDashboardPage() {
     const interval = setInterval(fetchClassroom, 2000);
     return () => clearInterval(interval);
   }, [autoRefresh, fetchClassroom]);
-
-  // Comando individual a un estudiante
-  const handleToggleStudentLed = async (studentId: string, currentLedState: boolean) => {
-    try {
-      const res = await fetch('/api/dht11/command', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId, led: !currentLedState }),
-      });
-      if (res.ok) {
-        setCommandFeedback(`Comando enviado al ESP32 de ${studentId}: LED ${!currentLedState ? 'ENCENDIDO' : 'APAGADO'}`);
-        setTimeout(() => setCommandFeedback(null), 3500);
-        fetchClassroom();
-      }
-    } catch (err) {
-      console.error('Error toggling student LED:', err);
-    }
-  };
-
-  // Broadcast a toda el aula
-  const handleBroadcastLed = async (state: boolean | null) => {
-    try {
-      const res = await fetch('/api/dht11/command', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broadcast: true, led: state }),
-      });
-      if (res.ok) {
-        setBroadcastActive(state);
-        setCommandFeedback(state !== null
-          ? `¡Broadcast enviado! Todos los ESP32 del aula pondrán su LED en ${state ? 'ENCENDIDO (HIGH)' : 'APAGADO (LOW)'}`
-          : 'Broadcast finalizado: los ESP32 vuelven al control automático'
-        );
-        setTimeout(() => setCommandFeedback(null), 4000);
-        fetchClassroom();
-      }
-    } catch (err) {
-      console.error('Error broadcasting LED:', err);
-    }
-  };
 
   // Reiniciar aula
   const handleResetClassroom = async () => {
@@ -183,28 +136,6 @@ export default function ClassroomDashboardPage() {
         </div>
       </div>
 
-      {/* Notificación de feedback de comando */}
-      {commandFeedback && (
-        <div
-          style={{
-            background: 'rgba(16, 185, 129, 0.15)',
-            border: '1px solid rgba(16, 185, 129, 0.35)',
-            borderRadius: 'var(--radius-md)',
-            padding: '0.85rem 1.25rem',
-            marginBottom: '1.5rem',
-            color: '#a7f3d0',
-            fontSize: '0.88rem',
-            fontWeight: 600,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-          }}
-        >
-          <Sparkles size={18} color="var(--emerald-accent)" />
-          <span>{commandFeedback}</span>
-        </div>
-      )}
-
       {/* Tarjetas de Métricas Globales del Aula */}
       <div className="grid-metrics">
         <div className="card-glass">
@@ -276,7 +207,7 @@ export default function ClassroomDashboardPage() {
         </div>
       </div>
 
-      {/* Barra de Control del Docente y Filtros */}
+      {/* Barra de Filtros y Control */}
       <div
         style={{
           display: 'flex',
@@ -310,36 +241,25 @@ export default function ClassroomDashboardPage() {
           />
         </div>
 
-        {/* Acciones de Aula para el Profesor */}
+        {/* Acciones de Aula */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Control Aula:</span>
-          
           <button
-            onClick={() => handleBroadcastLed(true)}
-            className="btn-primary"
-            style={{ fontSize: '0.78rem', padding: '0.45rem 0.85rem' }}
-          >
-            <Bell size={14} />
-            <span>Encender Todos los LED</span>
-          </button>
-
-          <button
-            onClick={() => handleBroadcastLed(false)}
+            onClick={() => setAutoRefresh(!autoRefresh)}
             className="btn-secondary"
             style={{ fontSize: '0.78rem', padding: '0.45rem 0.85rem' }}
           >
-            <span>Apagar Todos</span>
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: autoRefresh ? 'var(--emerald-accent)' : 'var(--text-dim)',
+                display: 'inline-block',
+                marginRight: '0.3rem',
+              }}
+            />
+            {autoRefresh ? 'Sondeo Activo (2s)' : 'Pausado'}
           </button>
-
-          {broadcastActive !== null && (
-            <button
-              onClick={() => handleBroadcastLed(null)}
-              className="btn-secondary"
-              style={{ fontSize: '0.78rem', padding: '0.45rem 0.75rem', color: 'var(--cyan-primary)' }}
-            >
-              Liberar Modo Auto
-            </button>
-          )}
 
           <button
             onClick={fetchClassroom}
@@ -347,6 +267,7 @@ export default function ClassroomDashboardPage() {
             style={{ fontSize: '0.78rem', padding: '0.45rem 0.75rem' }}
           >
             <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
+            <span>Actualizar</span>
           </button>
 
           <button
@@ -398,7 +319,6 @@ export default function ClassroomDashboardPage() {
             const reading = student.latestReading;
             const isHot = reading.temperature > 28;
             const isCold = reading.temperature < 19;
-            const isHumWarn = reading.humidity > 70 || reading.humidity < 30;
 
             const tempColor = isHot
               ? 'var(--rose-accent)'
@@ -493,22 +413,11 @@ export default function ClassroomDashboardPage() {
                   </div>
                 </div>
 
-                {/* Pie de la Tarjeta: Control y Hardware */}
+                {/* Pie de la Tarjeta: Red y paquetes */}
                 <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: '0.6rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: 'var(--text-dim)' }}>
                     <span>IP: {student.clientIp}</span>
                     <span>{student.packetsCount} paquetes recibidos</span>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button
-                      onClick={() => handleToggleStudentLed(student.studentId, reading.ledCommand)}
-                      className={reading.ledCommand ? 'btn-danger' : 'btn-secondary'}
-                      style={{ flex: 1, padding: '0.45rem', fontSize: '0.75rem' }}
-                    >
-                      <Bell size={12} />
-                      <span>{reading.ledCommand ? 'Apagar LED' : 'Probar LED (GPIO 2)'}</span>
-                    </button>
                   </div>
                 </div>
               </div>
