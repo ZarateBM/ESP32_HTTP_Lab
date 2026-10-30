@@ -1,7 +1,4 @@
 import {
-  SensorTelemetry,
-  ActuatorState,
-  HttpLog,
   StudentDHT11Reading,
   StudentSession,
   ClassroomSummary,
@@ -15,66 +12,28 @@ function calculateHeatIndex(tempC: number, hum: number): number {
   return Math.round((isNaN(hi) || hi < T ? T : hi) * 10) / 10;
 }
 
-interface GlobalStore {
-  // Laboratorio Multi-Estudiante DHT11
+interface ClassroomStore {
   students: Record<string, StudentSession>;
-  classroomLedBroadcast: boolean | null;
-
-  // Laboratorio de Luz y Proximidad
-  telemetryHistory: SensorTelemetry[];
-  latestTelemetry: SensorTelemetry | null;
-  actuators: ActuatorState;
-
-  // Auditoría HTTP compartida
-  httpLogs: HttpLog[];
   serverStartTime: number;
-  stats: {
-    totalRequests: number;
-    esp32Packets: number;
-    simulatorPackets: number;
-  };
 }
 
-const createInitialState = (): GlobalStore => {
+const createInitialState = (): ClassroomStore => {
   return {
     students: {},
-    classroomLedBroadcast: null,
-    telemetryHistory: [],
-    latestTelemetry: null,
-    actuators: {
-      led: false,
-      buzzer: false,
-      ledMode: 'auto',
-      proximityThreshold: 15,
-      lightThreshold: 200,
-      lastUpdated: new Date().toISOString(),
-    },
-    httpLogs: [],
     serverStartTime: Date.now(),
-    stats: {
-      totalRequests: 0,
-      esp32Packets: 0,
-      simulatorPackets: 0,
-    },
   };
 };
 
 declare global {
   // eslint-disable-next-line no-var
-  var __esp32Store: GlobalStore | undefined;
+  var __classroomStore: ClassroomStore | undefined;
 }
 
-if (!globalThis.__esp32Store || !globalThis.__esp32Store.students) {
-  globalThis.__esp32Store = createInitialState();
-} else {
-  // Limpiar cualquier dato ficticio de pruebas anteriores
-  delete globalThis.__esp32Store.students['alumno-01'];
-  delete globalThis.__esp32Store.students['alumno-02'];
-  delete globalThis.__esp32Store.students['alumno-03'];
-  delete globalThis.__esp32Store.students['alumno-04'];
+if (!globalThis.__classroomStore || !globalThis.__classroomStore.students) {
+  globalThis.__classroomStore = createInitialState();
 }
 
-const store = globalThis.__esp32Store;
+const store = globalThis.__classroomStore;
 if (!store.students) {
   store.students = {};
 }
@@ -110,16 +69,6 @@ export const LabStore = {
       status = 'warning_humidity';
     }
 
-    // Regla de actuador LED para el ESP32 del alumno
-    let ledCommand = status !== 'optimal';
-    const existing = store.students[studentId];
-
-    if (store.classroomLedBroadcast !== null) {
-      ledCommand = store.classroomLedBroadcast;
-    } else if (existing && typeof existing.ledTarget === 'boolean' && existing.ledTarget) {
-      ledCommand = true;
-    }
-
     const reading: StudentDHT11Reading = {
       id: `dht-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       studentId,
@@ -132,7 +81,7 @@ export const LabStore = {
       clientIp: data.clientIp,
       source: data.source || 'esp32',
       status,
-      ledCommand,
+      ledCommand: status !== 'optimal',
     };
 
     if (!store.students[studentId]) {
@@ -147,11 +96,10 @@ export const LabStore = {
         lastSeen: now.toISOString(),
         packetsCount: 1,
         isOnline: true,
-        ledTarget: false,
         clientIp: data.clientIp,
       };
     } else {
-      // Actualización de estudiante existente
+      // Actualización de telemetría de estudiante existente
       const session = store.students[studentId];
       session.studentName = studentName;
       if (data.deskNumber) session.deskNumber = deskNumber;
@@ -164,13 +112,6 @@ export const LabStore = {
       if (session.history.length > 25) {
         session.history.pop();
       }
-    }
-
-    store.stats.totalRequests++;
-    if (data.source === 'esp32') {
-      store.stats.esp32Packets++;
-    } else {
-      store.stats.simulatorPackets++;
     }
 
     return { reading, session: store.students[studentId] };
@@ -251,124 +192,14 @@ export const LabStore = {
     };
   },
 
-  setStudentLed(studentId: string, state: boolean) {
-    const cleanId = studentId.trim().toLowerCase().replace(/\s+/g, '-');
-    if (store.students[cleanId]) {
-      store.students[cleanId].ledTarget = state;
-      return true;
-    }
-    return false;
-  },
-
-  broadcastClassroomLed(state: boolean | null) {
-    store.classroomLedBroadcast = state;
-    if (state !== null) {
-      Object.values(store.students).forEach((s) => {
-        s.ledTarget = state;
-      });
-    }
-  },
-
   resetClassroom() {
     store.students = {};
-    store.classroomLedBroadcast = null;
-  },
-
-  // ==========================================
-  // SENSORES DE LUZ Y PROXIMIDAD (LAB ANTERIOR)
-  // ==========================================
-  addTelemetry(data: Omit<SensorTelemetry, 'id' | 'timestamp' | 'status'> & { id?: string; timestamp?: string }) {
-    const timestamp = data.timestamp || new Date().toISOString();
-    const id = data.id || `tel-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-
-    let status: SensorTelemetry['status'] = 'normal';
-    if (data.proximity < store.actuators.proximityThreshold) {
-      status = 'alert_proximity';
-    } else if (data.light < store.actuators.lightThreshold) {
-      status = 'alert_light';
-    }
-
-    const newTelemetry: SensorTelemetry = {
-      ...data,
-      id,
-      timestamp,
-      status,
-    };
-
-    store.latestTelemetry = newTelemetry;
-    store.telemetryHistory.unshift(newTelemetry);
-    if (store.telemetryHistory.length > 80) {
-      store.telemetryHistory.pop();
-    }
-
-    if (store.actuators.ledMode === 'auto') {
-      const shouldLedTurnOn = newTelemetry.proximity < store.actuators.proximityThreshold ||
-                              newTelemetry.light < store.actuators.lightThreshold;
-      store.actuators.led = shouldLedTurnOn;
-      store.actuators.buzzer = newTelemetry.proximity < (store.actuators.proximityThreshold / 2);
-      store.actuators.lastUpdated = new Date().toISOString();
-    }
-
-    store.stats.totalRequests++;
-    return newTelemetry;
-  },
-
-  getLatestTelemetry(): SensorTelemetry | null {
-    return store.latestTelemetry;
-  },
-
-  getHistory(limit = 30): SensorTelemetry[] {
-    return store.telemetryHistory.slice(0, limit);
-  },
-
-  getActuators(): ActuatorState {
-    return store.actuators;
-  },
-
-  updateActuators(partial: Partial<ActuatorState>): ActuatorState {
-    store.actuators = {
-      ...store.actuators,
-      ...partial,
-      lastUpdated: new Date().toISOString(),
-    };
-    return store.actuators;
-  },
-
-  // ==========================================
-  // AUDITORÍA Y REGISTRO DE PAQUETES HTTP
-  // ==========================================
-  addHttpLog(log: Omit<HttpLog, 'id' | 'timestamp'> & { id?: string; timestamp?: string }) {
-    const timestamp = log.timestamp || new Date().toISOString();
-    const id = log.id || `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-
-    const fullLog: HttpLog = {
-      ...log,
-      id,
-      timestamp,
-    };
-
-    store.httpLogs.unshift(fullLog);
-    if (store.httpLogs.length > 60) {
-      store.httpLogs.pop();
-    }
-
-    return fullLog;
-  },
-
-  getHttpLogs(limit = 50): HttpLog[] {
-    return store.httpLogs.slice(0, limit);
-  },
-
-  clearHttpLogs() {
-    store.httpLogs = [];
   },
 
   getStats() {
     return {
-      ...store.stats,
       uptimeSeconds: Math.floor((Date.now() - store.serverStartTime) / 1000),
       studentsCount: Object.keys(store.students).length,
-      historyCount: store.telemetryHistory.length,
     };
   },
 };

@@ -1,16 +1,13 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
 import {
   Users,
   Thermometer,
   Droplets,
-  Zap,
   RefreshCw,
   Search,
   Trash2,
-  Send,
   Flame,
   Snowflake,
 } from 'lucide-react';
@@ -97,7 +94,7 @@ export default function ClassroomDashboardPage() {
           }}
         />
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
               <span className="badge-pill badge-cyan">Red Local de Aula (WiFi)</span>
@@ -116,22 +113,11 @@ export default function ClassroomDashboardPage() {
               Tablero del Aula: <span style={{ color: 'var(--cyan-primary)' }}>Estudiantes con ESP32 & DHT11</span>
             </h1>
 
-            <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', maxWidth: '780px', lineHeight: '1.6' }}>
+            <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', maxWidth: '820px', lineHeight: '1.6' }}>
               Cada estudiante conecta su microcontrolador ESP32 a la misma red WiFi y transmite mediante{' '}
               <code style={{ color: 'var(--cyan-primary)' }}>HTTP POST /api/dht11</code>.
               Cada estación aparece proyectada en tiempo real con su <strong>Temperatura</strong>, <strong>Humedad</strong> y estado de conexión.
             </p>
-          </div>
-
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <Link href="/dht11-simulador" className="btn-primary">
-              <Send size={16} />
-              <span>Simulador del Alumno</span>
-            </Link>
-            <Link href="/guide" className="btn-secondary">
-              <Zap size={16} />
-              <span>Código Arduino (.ino)</span>
-            </Link>
           </div>
         </div>
       </div>
@@ -303,15 +289,11 @@ export default function ClassroomDashboardPage() {
         >
           <Users size={48} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
           <h3 style={{ fontSize: '1.1rem', color: '#f8fafc', marginBottom: '0.5rem' }}>
-            No hay estudiantes que coincidan con la búsqueda
+            Esperando conexión de microcontroladores ESP32...
           </h3>
-          <p style={{ fontSize: '0.85rem', maxWidth: '420px', margin: '0 auto 1.5rem', lineHeight: '1.6' }}>
-            Diles a los alumnos que compilen el código Arduino en su ESP32 o ingresen al simulador para registrar su estación.
+          <p style={{ fontSize: '0.85rem', maxWidth: '420px', margin: '0 auto', lineHeight: '1.6' }}>
+            Los estudiantes deben encender su ESP32 conectado al WiFi del aula para que su estación aparezca proyectada automáticamente aquí.
           </p>
-          <Link href="/dht11-simulador" className="btn-primary">
-            <Send size={16} />
-            <span>Abrir Simulador del Alumno</span>
-          </Link>
         </div>
       ) : (
         <div className="grid-classroom">
@@ -405,10 +387,6 @@ export default function ClassroomDashboardPage() {
                         : reading.status === 'warning_cold'
                         ? '❄️ Ambiente Frío (<19°C)'
                         : '💧 Humedad Fuera de Rango'}
-                    </span>
-
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
-                      {reading.source === 'esp32' ? 'ESP32 Real ⚡' : 'Simulador 💻'}
                     </span>
                   </div>
                 </div>

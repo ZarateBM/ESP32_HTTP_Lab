@@ -22,7 +22,7 @@ export async function GET() {
   );
 }
 
-// POST /api/dht11 - Recibir telemetría de DHT11 desde el ESP32 o simulador de un alumno
+// POST /api/dht11 - Recibir telemetría de DHT11 desde el ESP32
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
@@ -37,7 +37,6 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: 'JSON inválido en el cuerpo de la petición',
-        tip: 'Asegúrate de enviar Content-Type: application/json',
       },
       { status: 400 }
     );
@@ -58,37 +57,16 @@ export async function POST(request: NextRequest) {
   const humNum = typeof body.humidity === 'number' ? body.humidity : Number(body.humidity);
 
   if (isNaN(tempNum) || isNaN(humNum)) {
-    const errorRes = {
-      success: false,
-      error: 'Valores numéricos de temperatura o humedad inválidos o ausentes',
-      requiredFormat: {
-        studentId: 'texto (ej: alumno-01)',
-        studentName: 'texto (ej: Juan Pérez)',
-        temperature: 'número (ej: 24.5 en °C)',
-        humidity: 'número (ej: 60 en %)',
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Valores numéricos de temperatura o humedad inválidos o ausentes',
       },
-      received: body,
-    };
-
-    LabStore.addHttpLog({
-      method: 'POST',
-      path: '/api/dht11',
-      statusCode: 422,
-      clientIp: cleanIp,
-      userAgent,
-      requestHeaders: Object.fromEntries(request.headers.entries()),
-      requestBody: body,
-      responseBody: errorRes,
-      latencyMs: Date.now() - startTime,
-      source: userAgent.toLowerCase().includes('esp32') ? 'esp32' : 'browser_sim',
-      studentName,
-    });
-
-    return NextResponse.json(errorRes, { status: 422 });
+      { status: 422 }
+    );
   }
 
   const isEsp32 = userAgent.toLowerCase().includes('esp32') || body.source === 'esp32';
-  const source = isEsp32 ? 'esp32' : 'browser_sim';
 
   // Registrar lectura en el aula
   const { reading } = LabStore.registerStudentDHT11({
@@ -115,30 +93,13 @@ export async function POST(request: NextRequest) {
       heatIndex: reading.heatIndex,
       status: reading.status,
     },
-    // Comando para el hardware ESP32 del alumno
-    ledCommand: reading.ledCommand,
     classroom: {
       totalConnected: summary.onlineStudents,
       avgTemperature: summary.avgTemperature,
       avgHumidity: summary.avgHumidity,
     },
-    educationalTip: 'El ESP32 del alumno lee "ledCommand" y enciende su LED (GPIO 2) si hay alerta térmica o si el profesor lo activó.',
     timestamp: reading.timestamp,
   };
-
-  LabStore.addHttpLog({
-    method: 'POST',
-    path: '/api/dht11',
-    statusCode: 201,
-    clientIp: cleanIp,
-    userAgent,
-    requestHeaders: Object.fromEntries(request.headers.entries()),
-    requestBody: body,
-    responseBody: successResponse,
-    latencyMs: Date.now() - startTime,
-    source,
-    studentName: reading.studentName,
-  });
 
   return NextResponse.json(successResponse, {
     status: 201,
