@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Cpu, Users, Thermometer, Lightbulb } from 'lucide-react';
+import { Cpu, Users, Thermometer, Lightbulb, Radar } from 'lucide-react';
 
 export default function Header() {
   const pathname = usePathname();
@@ -104,6 +104,27 @@ export default function Header() {
           >
             <Lightbulb size={16} />
             <span>Sala Virtual (Brillo)</span>
+          </Link>
+
+          <Link
+            href="/radar"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.45rem 0.95rem',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '0.84rem',
+              fontWeight: 600,
+              textDecoration: 'none',
+              transition: 'all 0.2s ease',
+              background: pathname === '/radar' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+              color: pathname === '/radar' ? 'var(--cyan-primary)' : 'var(--text-muted)',
+              border: pathname === '/radar' ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid var(--border-light)',
+            }}
+          >
+            <Radar size={16} />
+            <span>Radar HY-SR05 (Distancia)</span>
           </Link>
         </nav>
 

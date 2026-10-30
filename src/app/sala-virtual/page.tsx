@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   Lightbulb,
   Sun,
-  Moon,
   Sparkles,
   RefreshCw,
   Search,
@@ -179,31 +178,27 @@ export default function VirtualRoomPage() {
 
         <div className="card-glass">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Ambiente Actual</span>
-            {avgBrightness < 30 ? <Moon size={18} color="var(--blue-primary)" /> : <Sparkles size={18} color="var(--amber-accent)" />}
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Mayor Intensidad</span>
+            <Zap size={18} color="var(--amber-accent)" />
           </div>
           <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc', marginTop: '0.4rem' }}>
-            {summary?.roomMode === 'cine'
-              ? '🎬 Modo Noche / Cine'
-              : summary?.roomMode === 'trabajo'
-              ? '☀️ Plena Iluminación'
-              : '☕ Ambiente Cálido'}
+            {summary?.highestBrightness ? `${summary.highestBrightness.studentName.split(' ')[0]}` : '--'}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.3rem' }}>
-            {avgBrightness < 30 ? 'Luz tenue para concentración' : avgBrightness > 70 ? 'Máxima visibilidad de aula' : 'Iluminación relajada'}
+          <div style={{ fontSize: '0.75rem', color: 'var(--amber-accent)', marginTop: '0.3rem', fontFamily: 'var(--font-mono)' }}>
+            Nivel: {summary?.highestBrightness ? `${summary.highestBrightness.brightness}%` : '--'}
           </div>
         </div>
 
         <div className="card-glass">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Lámpara Más Brillante</span>
-            <Zap size={18} color="var(--cyan-primary)" />
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Menor Intensidad</span>
+            <Sparkles size={18} color="var(--cyan-primary)" />
           </div>
-          <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--cyan-primary)', marginTop: '0.4rem' }}>
-            {summary?.highestBrightness ? `${summary.highestBrightness.studentName.split(' ')[0]}` : '--'}
+          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc', marginTop: '0.4rem' }}>
+            {summary?.lowestBrightness ? `${summary.lowestBrightness.studentName.split(' ')[0]}` : '--'}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.3rem' }}>
-            Nivel: {summary?.highestBrightness ? `${summary.highestBrightness.brightness}%` : '--'}
+          <div style={{ fontSize: '0.75rem', color: 'var(--cyan-primary)', marginTop: '0.3rem', fontFamily: 'var(--font-mono)' }}>
+            Nivel: {summary?.lowestBrightness ? `${summary.lowestBrightness.brightness}%` : '--'}
           </div>
         </div>
       </div>
@@ -223,33 +218,7 @@ export default function VirtualRoomPage() {
           boxShadow: `inset 0 0 100px rgba(0, 0, 0, 0.8), 0 0 ${avgBrightness * 0.8}px rgba(251, 191, 36, ${ambientOpacity * 0.3})`,
         }}
       >
-        {/* Ventana simulada al fondo */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '30px',
-            right: '40px',
-            width: '120px',
-            height: '140px',
-            borderRadius: '12px',
-            border: '3px solid rgba(255, 255, 255, 0.15)',
-            background: avgBrightness > 50
-              ? 'linear-gradient(180deg, #38bdf8 0%, #bae6fd 100%)'
-              : 'linear-gradient(180deg, #020617 0%, #1e1b4b 100%)',
-            boxShadow: avgBrightness > 50 ? '0 0 35px rgba(56, 189, 248, 0.5)' : 'inset 0 0 20px rgba(0,0,0,0.8)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            opacity: 0.85,
-            pointerEvents: 'none',
-          }}
-        >
-          <div style={{ fontSize: '1.8rem' }}>{avgBrightness > 50 ? '☀️' : '🌙'}</div>
-          <div style={{ fontSize: '0.65rem', color: '#ffffff', fontWeight: 700, textShadow: '0 1px 2px #000' }}>
-            {avgBrightness > 50 ? 'Exterior Día' : 'Exterior Noche'}
-          </div>
-        </div>
+
 
         {/* Título de la Sala */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>

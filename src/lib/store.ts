@@ -4,6 +4,8 @@ import {
   ClassroomSummary,
   StudentDimmerReading,
   DimmerClassroomSummary,
+  StudentProximityReading,
+  ProximityClassroomSummary,
 } from '@/types';
 
 // Función para calcular Sensación Térmica (Heat Index)
@@ -31,6 +33,9 @@ interface ClassroomStore {
   // Sala Virtual Dimmer (Potenciómetro)
   dimmers: Record<string, StudentDimmerReading>;
 
+  // Radar Proximidad (Sensor HY-SR05)
+  proximities: Record<string, StudentProximityReading>;
+
   serverStartTime: number;
 }
 
@@ -38,6 +43,7 @@ const createInitialState = (): ClassroomStore => {
   return {
     students: {},
     dimmers: {},
+    proximities: {},
     serverStartTime: Date.now(),
   };
 };
@@ -47,13 +53,14 @@ declare global {
   var __classroomStore: ClassroomStore | undefined;
 }
 
-if (!globalThis.__classroomStore || !globalThis.__classroomStore.students || !globalThis.__classroomStore.dimmers) {
+if (!globalThis.__classroomStore || !globalThis.__classroomStore.students || !globalThis.__classroomStore.dimmers || !globalThis.__classroomStore.proximities) {
   globalThis.__classroomStore = createInitialState();
 }
 
 const store = globalThis.__classroomStore;
 if (!store.students) store.students = {};
 if (!store.dimmers) store.dimmers = {};
+if (!store.proximities) store.proximities = {};
 
 export const LabStore = {
   // ==========================================
@@ -305,11 +312,130 @@ export const LabStore = {
     store.dimmers = {};
   },
 
+  // ==========================================
+  // GESTIÓN DEL RADAR / PROXIMIDAD HY-SR05
+  // ==========================================
+  registerProximity(data: {
+    studentId: string;
+    studentName: string;
+    deskNumber?: string;
+    distanceCm: number;
+    durationUs?: number;
+    clientIp: string;
+  }) {
+    const studentId = data.studentId.trim().toLowerCase().replace(/\s+/g, '-');
+    const studentName = data.studentName.trim() || `Alumno ${studentId}`;
+    const deskNumber = data.deskNumber?.trim() || 'Mesa Radar';
+    const dist = Math.max(0, Math.round(Number(data.distanceCm) * 10) / 10);
+    const duration = data.durationUs ? Math.round(Number(data.durationUs)) : Math.round((dist * 2) / 0.0343);
+
+    let alertZone: StudentProximityReading['alertZone'] = 'safe';
+    if (dist < 20) {
+      alertZone = 'danger';
+    } else if (dist <= 60) {
+      alertZone = 'warning';
+    }
+
+    const existing = store.proximities[studentId];
+    const packetsCount = existing ? existing.packetsCount + 1 : 1;
+
+    // Asignar un ángulo consistente de 0 a 360 grados según el identificador
+    let hash = 0;
+    for (let i = 0; i < studentId.length; i++) {
+      hash = (hash << 5) - hash + studentId.charCodeAt(i);
+      hash |= 0;
+    }
+    const radarAngle = existing?.radarAngle ?? Math.abs(hash % 360);
+
+    const nowIso = new Date().toISOString();
+    const proximityRecord: StudentProximityReading = {
+      studentId,
+      studentName,
+      deskNumber,
+      distanceCm: dist,
+      durationUs: duration,
+      alertZone,
+      radarAngle,
+      timestamp: nowIso,
+      lastSeen: nowIso,
+      clientIp: data.clientIp,
+      isOnline: true,
+      packetsCount,
+    };
+
+    store.proximities[studentId] = proximityRecord;
+
+    return {
+      proximity: proximityRecord,
+      summary: this.getProximitySummary(),
+    };
+  },
+
+  getAllProximities(): StudentProximityReading[] {
+    const now = Date.now();
+    const list = Object.values(store.proximities);
+
+    return list.map((p) => {
+      const diffMs = now - new Date(p.lastSeen).getTime();
+      return {
+        ...p,
+        isOnline: diffMs < 20000,
+      };
+    }).sort((a, b) => a.distanceCm - b.distanceCm);
+  },
+
+  getProximitySummary(): ProximityClassroomSummary {
+    const proximities = this.getAllProximities();
+    const online = proximities.filter((p) => p.isOnline);
+
+    if (proximities.length === 0) {
+      return {
+        avgDistanceCm: 0,
+        totalStudents: 0,
+        onlineStudents: 0,
+        closestObstacle: null,
+        furthestObstacle: null,
+        criticalAlertsCount: 0,
+        lastUpdate: new Date().toISOString(),
+      };
+    }
+
+    const activeList = online.length > 0 ? online : proximities;
+    const sumDistance = activeList.reduce((acc, p) => acc + p.distanceCm, 0);
+    const avg = Math.round((sumDistance / activeList.length) * 10) / 10;
+
+    const sortedByDist = [...activeList].sort((a, b) => a.distanceCm - b.distanceCm);
+    const criticalCount = activeList.filter((p) => p.alertZone === 'danger').length;
+
+    return {
+      avgDistanceCm: avg,
+      totalStudents: proximities.length,
+      onlineStudents: online.length,
+      closestObstacle: {
+        studentName: sortedByDist[0].studentName,
+        distanceCm: sortedByDist[0].distanceCm,
+        deskNumber: sortedByDist[0].deskNumber,
+      },
+      furthestObstacle: {
+        studentName: sortedByDist[sortedByDist.length - 1].studentName,
+        distanceCm: sortedByDist[sortedByDist.length - 1].distanceCm,
+        deskNumber: sortedByDist[sortedByDist.length - 1].deskNumber,
+      },
+      criticalAlertsCount: criticalCount,
+      lastUpdate: new Date().toISOString(),
+    };
+  },
+
+  resetProximities() {
+    store.proximities = {};
+  },
+
   getStats() {
     return {
       uptimeSeconds: Math.floor((Date.now() - store.serverStartTime) / 1000),
       studentsCount: Object.keys(store.students).length,
       dimmersCount: Object.keys(store.dimmers).length,
+      proximitiesCount: Object.keys(store.proximities).length,
     };
   },
 };

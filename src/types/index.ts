@@ -67,3 +67,32 @@ export interface DimmerClassroomSummary {
   roomMode: 'cine' | 'calido' | 'trabajo';
   lastUpdate: string;
 }
+
+// ==========================================
+// MODELOS PARA EL RADAR / PROXIMIDAD CON HY-SR05
+// ==========================================
+export interface StudentProximityReading {
+  studentId: string;
+  studentName: string;
+  deskNumber: string;
+  distanceCm: number;       // Distancia en centímetros (ej: 2 - 400 cm)
+  durationUs: number;       // Tiempo de pulso Echo en microsegundos
+  alertZone: 'danger' | 'warning' | 'safe'; // < 20cm: danger, 20-60cm: warning, > 60cm: safe
+  radarAngle: number;       // Posición angular en el radar colectivo (0 a 360 grados)
+  timestamp: string;
+  lastSeen: string;
+  clientIp: string;
+  isOnline: boolean;
+  packetsCount: number;
+}
+
+export interface ProximityClassroomSummary {
+  avgDistanceCm: number;
+  totalStudents: number;
+  onlineStudents: number;
+  closestObstacle: { studentName: string; distanceCm: number; deskNumber: string } | null;
+  furthestObstacle: { studentName: string; distanceCm: number; deskNumber: string } | null;
+  criticalAlertsCount: number; // Cantidad de sensores con obstáculo a < 20 cm
+  lastUpdate: string;
+}
+
